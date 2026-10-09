@@ -17,7 +17,7 @@ Implementation and verification plan for `com.infinityball.gigcue`. **Status: pl
 1. **Skeleton and CI** — Hand-authored or generated Xcode project with app target, bundle ID `com.infinityball.gigcue`, `TARGETED_DEVICE_FAMILY = 1`, and GitHub Actions workflow checking syntax, formatting, and platform declarations on Linux/macOS.
 2. **Local Domain & Storage** — Models for `Show`, `SongCard`, `StageCue`, `BreakMarker`, and performance progress. Zero-data bootstrap and migrations.
 3. **Stage Performance View** — High-contrast, glanceable layout for live performance: current song, next song, tempo/key indicators, break banners, and low-latency navigation.
-4. **Show Builder & Reordering** — List editing, drag-and-drop reordering, quick cue adjustments, set duration estimates, and set duplication.
+4. **Show Builder & Reordering** — List editing, drag-and-drop reordering, quick cue adjustments, break insertion, and set duplication.
 5. **Stage Legibility, Accessibility & Layout Seam** — Dynamic Type support, VoiceOver labels, high-contrast dark palette, and the `GigWorkspaceLayout` abstraction separating stage controls from the set list.
 6. **Local Backup, Restore Preview & Text Export** — User-facing JSON export/import with pre-flight validation, plus formatted plain-text setlist sharing for bandmates.
 7. **Store Assets, Release Action & TestFlight Gate** — Port proven `rwrife/cook-console` `.github/workflows/release.yml`, generate real `AppStore/icon.png` using `hermes-image-gen`, wire into Xcode asset catalog, and verify App Store Connect distribution prerequisites.
