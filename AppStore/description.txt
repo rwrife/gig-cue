@@ -1,0 +1,7 @@
+Gig Cue is planned as a focused, offline stage companion for solo performers and small bands.
+
+Build a show from your own song cards, note each song's key, tempo and a short personal cue, and arrange breaks in the order you need. During a set, follow a readable current-and-next-song view with deliberate, large navigation controls. Afterward, keep a portable copy of your show: the plan includes a local JSON backup and a plain-text setlist you can share yourself.
+
+The planned app keeps shows on your iPhone. It requires no account, music subscription, microphone, location service or cloud connection. Accessibility and dim-stage legibility are part of the release criteria.
+
+This listing is draft copy for a planned app. Feature claims must be checked against the finished build before publication.
