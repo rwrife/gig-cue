@@ -22,7 +22,7 @@ Current build is a standard single-screen iPhone app, not a foldable implementat
 
 ## Data, privacy and access
 
-Device-local shows and progress (SQLite or SwiftData, chosen in issue #2), zero network calls and no analytics. A user-initiated Files/share-sheet export is the only outward flow; exported cues can include personal notes, so preview destinations and avoid silent uploads. No permissions needed by default: no location, microphone, camera, contacts, HealthKit or notifications. Optional screen-awake behavior is user-visible and scoped to performance mode; stage-dim control never silently overrides system accessibility preferences. Dynamic Type, VoiceOver labels, large hit targets, reduced motion and high contrast are release gates.
+Device-local shows and progress (Foundation Codable JSON with atomic writes in Application Support), zero network calls and no analytics. A user-initiated Files/share-sheet export is the only outward flow; exported cues can include personal notes, so preview destinations and avoid silent uploads. No permissions needed by default: no location, microphone, camera, contacts, HealthKit or notifications. Optional screen-awake behavior is user-visible and scoped to performance mode; stage-dim control never silently overrides system accessibility preferences. Dynamic Type, VoiceOver labels, large hit targets, reduced motion and high contrast are release gates.
 
 ## Milestones
 
