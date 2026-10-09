@@ -22,7 +22,13 @@ Implementation and verification plan for `com.infinityball.gigcue`. **Status: pl
 6. **Local Backup, Restore Preview & Text Export** — User-facing JSON export/import with pre-flight validation, plus formatted plain-text setlist sharing for bandmates.
 7. **Store Assets, Release Action & TestFlight Gate** — Port proven `rwrife/cook-console` `.github/workflows/release.yml`, generate real `AppStore/icon.png` using `hermes-image-gen`, wire into Xcode asset catalog, and verify App Store Connect distribution prerequisites.
 
+## Testing strategy and dependency order
+
+Implement #1, then #2; #3 and #4 build on persistence; #5 follows usable screens; #6 proves portability; #7 releases only after all earlier acceptance gates pass. Pure-Swift tests cover invalid inputs, stable identities, reorder/resume, break transitions, atomic write failures, migrations and malformed/unknown-version restore with original data preserved. Apple CI must build the exact PR head, check actual pinned Xcode/SDK and built UIDeviceFamily [1], then exercise create/edit/reorder/performance/restore journeys at standard and accessibility text sizes. A zero-network contract gate checks source and dependencies. Record actual run URLs and failures, never equate Linux syntax checks with native execution.
+
 ## Packaging and Release
+
+Port the proven cook-console Action without inventing signing: v* tag or manual dispatch, macos-26, mode-600 API key, signed IPA archive/export, TestFlight upload, bounded processing poll and GitHub release. Store processing and native icon compilation require real Apple-runner evidence.
 
 Packaging will use the four configured App Store Connect repository secrets:
 `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`, and `ASC_TEAM_ID`.
