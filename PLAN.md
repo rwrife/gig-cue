@@ -8,7 +8,7 @@ Implementation and verification plan for `com.infinityball.gigcue`. **Status: pl
 - Frameworks: SwiftUI and UIKit with Swift Package Manager and Xcode 26.0.1 (17A400) targeting iOS 26+ SDK.
 - Device family: `TARGETED_DEVICE_FAMILY = 1` across all targets. Native iPad support is disabled. Android and iPad are non-goals.
 - Prohibited frameworks: No Flutter, React Native, Expo, Kotlin Multiplatform, .NET MAUI, Unity.
-- Storage: Device-local persistence (SQLite via SwiftPM or SwiftData) with append-only performance event state and exportable JSON snapshot schema.
+- Storage: Foundation Codable versioned JSON saved atomically in Application Support; one document per show, plus durable current-song ID. Start without a database dependency; add one only when measured scale requires it.
 - Network policy: Zero network access. All features operate fully offline.
 - Dual-screen posture: iPhone Duo is a planned target behind a clean `GigWorkspaceLayout` layout seam. The app will build and execute as a standard single-screen iPhone app with no unavailable fold SDK APIs.
 
