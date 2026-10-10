@@ -1,11 +1,19 @@
-# Xcode, SwiftPM and generated state
+# Local signing material (never commit)
+*.p8
+*.p12
+*.mobileprovision
+*.provisionprofile
+*.cer
+asc_private/
+
+# Xcode, SwiftPM, Python, and generated state
 .DS_Store
 .build/
 .swiftpm/
-DerivedData/
+__pycache__/
+*.pyc
 xcuserdata/
 *.xcuserstate
-*.xcresult
 *.ipa
 *.xcarchive
 coverage/
@@ -14,7 +22,8 @@ coverage/
 *.sqlite-shm
 *.sqlite-wal
 .env
-*.p8
-*.p12
-*.mobileprovision
-*.cer
+
+# Build and CI artifacts
+build/
+DerivedData/
+*.xcresult

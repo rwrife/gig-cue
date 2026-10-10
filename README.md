@@ -1,6 +1,6 @@
 # Gig Cue
 
-Offline iPhone gig companion for live musicians: glance setlists and key/tempo cues folded, then follow a stage-friendly set flow without accounts or cloud. **Status: planning scaffold only. No app, generated icon, build, or release exists yet.**
+Offline iPhone gig companion for live musicians: glance setlists and key/tempo cues folded, then follow a stage-friendly set flow without accounts or cloud. **Status: native launch skeleton with package tests and exact-head CI; setlist, storage, icon, and release are not yet implemented.**
 
 ## Why and for whom
 
@@ -26,11 +26,11 @@ Device-local shows and progress (Foundation Codable JSON with atomic writes in A
 
 ## Milestones
 
-See [PLAN.md](PLAN.md) and the seven linked GitHub issues: native skeleton, local domain, performance mode, edit flow, accessibility/layout, portable export/restore, then icon/release. `AppStore/description.txt` is a draft of the planned experience, not a shipping claim. A real `AppStore/icon.png` must be generated using `hermes-image-gen` after reading the repo and description, then wired into Xcode assets; no placeholder may count as completion.
+See [PLAN.md](PLAN.md), [docs/bootstrap-evidence.md](docs/bootstrap-evidence.md), and the seven linked GitHub issues: native skeleton, local domain, performance mode, edit flow, accessibility/layout, portable export/restore, then icon/release. `AppStore/description.txt` is a draft of the planned experience, not a shipping claim. A real `AppStore/icon.png` must be generated using `hermes-image-gen` after reading the repo and description, then wired into Xcode assets; no placeholder may count as completion.
 
 ## Development
 
-This is documentation-only. Once the Xcode project lands, open it with pinned Xcode 26.0.1 and run its shared iPhone simulator scheme. Until then there is no app build or test suite to run on this Linux host. `toolchain.json` is a planning declaration, not verified CI evidence. Keep PRs in isolated worktrees; never commit to shared main from an executor.
+Open `GigCue.xcodeproj` with Xcode 26.0.1 (17A400) and run the shared `GigCue` iPhone simulator scheme. Run `swift test --package-path Packages/GigCueKit` for the pure package and `python3 -m unittest discover -s Scripts/tests` for CI helpers. `Scripts/ci.sh <commit-sha>` performs pinned native validation on macOS; Linux syntax/package checks do not prove an iOS build. See [bootstrap evidence](docs/bootstrap-evidence.md) for verification tiers. Keep PRs in isolated worktrees; never commit to shared main from an executor.
 
 ## Distribution
 
