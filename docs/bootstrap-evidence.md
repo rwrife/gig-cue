@@ -86,3 +86,8 @@ artifacts with `if: always()` so failures keep their provenance
   arrive with issues #2–#6.
 - Hosted `simctl` startup has known transient hangs; a red CI run at a proven
   unchanged tree is retried once before being reported as an environment blocker.
+- Run 38053717931 attempts 1-3 each timed out at `simctl bootstatus` (180s, then 180s after
+  shutdown/retry) on three distinct fresh simulators, before any compile. The first
+  `bootstatus` wait is now bounded at 300s (`--first-bootstatus-timeout`); the shutdown/retry
+  wait keeps 180s. Helper tests (34) cover the asymmetric bounds. Native success is still
+  CI-pending for the new head.

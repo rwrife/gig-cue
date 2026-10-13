@@ -127,6 +127,7 @@ python3 Scripts/boot_simulator.py boot \
   --log "$artifact_dir/simulator-boot.log" \
   --boot-timeout 120 \
   --bootstatus-timeout 180 \
+  --first-bootstatus-timeout 300 \
   2> >(tee -a "$artifact_dir/simulator-boot.log" >&2)
 
 phase="domain_tests"

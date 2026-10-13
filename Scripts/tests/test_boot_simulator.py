@@ -172,6 +172,55 @@ class BootTests(unittest.TestCase):
         self.assertIn("not ready", self.log_path.read_text())
 
 
+class FirstBootBoundTests(unittest.TestCase):
+    """First bootstatus wait is bounded wider than the shutdown/retry wait.
+
+    Fresh hosted runners prepare the downloaded device image lazily on first
+    boot (gig-cue PR #8: three runners each exceeded 180s before compiling);
+    the retry keeps the normal bound so a wedged daemon still fails fast.
+    """
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.log_path = Path(directory.name) / "simulator-boot.log"
+
+    def kwargs_recording_runner(self, outcomes):
+        """Runner fake raising TimeoutExpired carrying the real timeout kwarg."""
+        calls = []
+
+        def runner(command, **kwargs):
+            calls.append((command, kwargs))
+            outcome = outcomes[len(calls) - 1]
+            if outcome == "timeout":
+                raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+            return subprocess.CompletedProcess(command, 0, "ok\n")
+
+        return runner, calls
+
+    def test_first_bootstatus_uses_extended_bound_and_retry_keeps_normal_bound(self):
+        runner, calls = self.kwargs_recording_runner(
+            ["ok", "timeout", "ok", "ok", "ok"]
+        )
+
+        boot_selected_simulator("PHONE-26", devices(), self.log_path, runner=runner)
+
+        verbs = [call[0][2] for call in calls]
+        timeouts = [call[1]["timeout"] for call in calls]
+        self.assertEqual(verbs, ["boot", "bootstatus", "shutdown", "boot", "bootstatus"])
+        self.assertEqual(timeouts, [120, 300, 30, 120, 180])
+
+    def test_first_and_retry_timeouts_report_their_own_bounds(self):
+        runner, _ = self.kwargs_recording_runner(
+            ["ok", "timeout", "ok", "ok", "timeout"]
+        )
+
+        with self.assertRaisesRegex(
+            SimulatorBootError, r"timed out after 300.*timed out after 180"
+        ):
+            boot_selected_simulator("PHONE-26", devices(), self.log_path, runner=runner)
+
+
 class RealSubprocessTests(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()

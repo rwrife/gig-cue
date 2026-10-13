@@ -105,12 +105,13 @@ def boot_selected_simulator(
     *,
     boot_timeout: int = 120,
     bootstatus_timeout: int = 180,
+    first_bootstatus_timeout: int = 300,
     runner: Runner = subprocess.run,
 ) -> None:
     state = device_state(devices, udid)
     log_path.write_text(f"Selected {udid}; initial state is {state}\n", encoding="utf-8")
 
-    def attempt_boot(force_boot: bool = False) -> None:
+    def attempt_boot(force_boot: bool = False, status_timeout: int = bootstatus_timeout) -> None:
         if state == "Booted" and not force_boot:
             with log_path.open("a", encoding="utf-8") as log:
                 log.write("Simulator is already Booted; skipping simctl boot.\n")
@@ -123,13 +124,18 @@ def boot_selected_simulator(
             )
         run_logged(
             ["xcrun", "simctl", "bootstatus", udid, "-b"],
-            bootstatus_timeout,
+            status_timeout,
             log_path,
             runner=runner,
         )
 
     try:
-        attempt_boot()
+        # First boot on a fresh hosted runner prepares the downloaded device
+        # image lazily (gig-cue PR #8 attempts 1-3: three distinct UDIDs each
+        # blew the 180s bound pre-compile). Give the first wait a much larger
+        # bound; the shutdown/retry path keeps the normal bound so a genuinely
+        # wedged daemon still fails fast.
+        attempt_boot(status_timeout=first_bootstatus_timeout)
     except SimulatorBootError as error:
         # Hosted runners sometimes hand out a simulator whose CoreSimulator
         # boot wedges until the timeout (seat-weave PR #8/#9 measured this
@@ -170,6 +176,7 @@ def main() -> int:
     boot_parser.add_argument("--log", type=Path, required=True)
     boot_parser.add_argument("--boot-timeout", type=int, default=120)
     boot_parser.add_argument("--bootstatus-timeout", type=int, default=180)
+    boot_parser.add_argument("--first-bootstatus-timeout", type=int, default=300)
 
     capture_parser = subparsers.add_parser("capture")
     capture_parser.add_argument("--output", type=Path, required=True)
@@ -191,6 +198,7 @@ def main() -> int:
             args.log,
             boot_timeout=args.boot_timeout,
             bootstatus_timeout=args.bootstatus_timeout,
+            first_bootstatus_timeout=args.first_bootstatus_timeout,
         )
     except (OSError, json.JSONDecodeError, SimulatorBootError) as error:
         print(f"Simulator boot failed: {error}", file=sys.stderr)
