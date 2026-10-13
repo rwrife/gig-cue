@@ -1,6 +1,6 @@
 # Gig Cue Implementation Plan
 
-Implementation and verification plan for `com.infinityball.gigcue`. **Status: planning declaration only. No Xcode project, source files, tests, icon, or CI exist yet.**
+Implementation and verification plan for `com.infinityball.gigcue`. **Status: native launch skeleton with package tests and exact-head CI landed; domain persistence, performance view, show builder, and release remain in progress.**
 
 ## Scope and architecture
 
@@ -14,7 +14,7 @@ Implementation and verification plan for `com.infinityball.gigcue`. **Status: pl
 
 ## Milestones
 
-1. **Skeleton and CI** — Hand-authored or generated Xcode project with app target, bundle ID `com.infinityball.gigcue`, `TARGETED_DEVICE_FAMILY = 1`, and GitHub Actions workflow checking syntax, formatting, and platform declarations on Linux/macOS.
+1. **Skeleton and CI** — Xcode project with app and UI-test targets, bundle ID `com.infinityball.gigcue`, `TARGETED_DEVICE_FAMILY = 1`, and exact-head GitHub Actions workflow checking package tests, syntax, and platform declarations on Linux and building/testing on macOS.
 2. **Local Domain & Storage** — Models for `Show`, `SongCard`, `StageCue`, `BreakMarker`, and performance progress. Zero-data bootstrap and migrations.
 3. **Stage Performance View** — High-contrast, glanceable layout for live performance: current song, next song, tempo/key indicators, break banners, and low-latency navigation.
 4. **Show Builder & Reordering** — List editing, drag-and-drop reordering, quick cue adjustments, break insertion, and set duplication.
