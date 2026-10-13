@@ -23,7 +23,7 @@ Dated record of what was actually verified, where, and what remains CI-only.
 - `Scripts/check_contract.py`: pre-build assertion verifying `TARGETED_DEVICE_FAMILY = 1`
   and `PRODUCT_BUNDLE_IDENTIFIER = com.infinityball.gigcue` across configurations.
 - `.github/workflows/ci.yml`: Linux package job (`swift:6.2-noble`) plus a
-  macos-26 job with exact-head checkout, pinned-toolchain validation, and
+  macos-15 job with exact-head checkout, pinned-toolchain validation, and
   always-upload artifacts.
 
 ## Toolchain enforcement
@@ -86,8 +86,11 @@ artifacts with `if: always()` so failures keep their provenance
   arrive with issues #2–#6.
 - Hosted `simctl` startup has known transient hangs; a red CI run at a proven
   unchanged tree is retried once before being reported as an environment blocker.
-- Run 38053717931 attempts 1-3 each timed out at `simctl bootstatus` (180s, then 180s after
-  shutdown/retry) on three distinct fresh simulators, before any compile. The first
-  `bootstatus` wait is now bounded at 300s (`--first-bootstatus-timeout`); the shutdown/retry
-  wait keeps 180s. Helper tests (34) cover the asymmetric bounds. Native success is still
+- Run 38053717931 attempts 1-3 and run 38410779165 (head f3789ed, first wait 300s) each timed
+  out at `simctl bootstatus` on four distinct fresh simulators, before any compile. The first
+  `bootstatus` wait is now bounded at 480s (`--first-bootstatus-timeout`); the shutdown/retry
+  wait keeps 180s (worst-case boot phase ~15.5 min, inside the 38-min step bound). Helper tests
+  (34) cover the asymmetric bounds. The macos-15 image is used for validation now: sibling
+  rwrife/seat-weave run 38115964222 passed the same exact Xcode 26.0.1/17A400 and iOS 26.0
+  runtime there. Release packaging remains macos-26 (issue #7). Native success is still
   CI-pending for the new head.

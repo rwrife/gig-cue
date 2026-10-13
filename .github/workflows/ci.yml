@@ -56,7 +56,11 @@ jobs:
           echo "Signing-material gitignore check: PASS"
 
   ios:
-    runs-on: macos-26
+    # macos-15 has passed the exact Xcode 26.0.1/17A400 + iOS 26.0 simulator lane
+    # in rwrife/seat-weave run 38115964222. macos-26 needed a 10 GB runtime
+    # download and stalled at bootstatus on four fresh devices pre-compile.
+    # Keep exact toolchain/runtime checks in Scripts/ci.sh; never substitute.
+    runs-on: macos-15
     timeout-minutes: 45
     env:
       TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}

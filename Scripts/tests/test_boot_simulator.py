@@ -208,7 +208,7 @@ class FirstBootBoundTests(unittest.TestCase):
         verbs = [call[0][2] for call in calls]
         timeouts = [call[1]["timeout"] for call in calls]
         self.assertEqual(verbs, ["boot", "bootstatus", "shutdown", "boot", "bootstatus"])
-        self.assertEqual(timeouts, [120, 300, 30, 120, 180])
+        self.assertEqual(timeouts, [120, 480, 30, 120, 180])
 
     def test_first_and_retry_timeouts_report_their_own_bounds(self):
         runner, _ = self.kwargs_recording_runner(
@@ -216,7 +216,7 @@ class FirstBootBoundTests(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(
-            SimulatorBootError, r"timed out after 300.*timed out after 180"
+            SimulatorBootError, r"timed out after 480.*timed out after 180"
         ):
             boot_selected_simulator("PHONE-26", devices(), self.log_path, runner=runner)
 

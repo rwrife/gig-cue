@@ -105,7 +105,7 @@ def boot_selected_simulator(
     *,
     boot_timeout: int = 120,
     bootstatus_timeout: int = 180,
-    first_bootstatus_timeout: int = 300,
+    first_bootstatus_timeout: int = 480,
     runner: Runner = subprocess.run,
 ) -> None:
     state = device_state(devices, udid)
@@ -131,10 +131,10 @@ def boot_selected_simulator(
 
     try:
         # First boot on a fresh hosted runner prepares the downloaded device
-        # image lazily (gig-cue PR #8 attempts 1-3: three distinct UDIDs each
-        # blew the 180s bound pre-compile). Give the first wait a much larger
-        # bound; the shutdown/retry path keeps the normal bound so a genuinely
-        # wedged daemon still fails fast.
+        # image lazily (gig-cue PR #8 attempts 1-4: four distinct UDIDs blew
+        # 180s, 180s, 180s and 300s pre-compile). Give the first wait a much
+        # larger bound (480s); the shutdown/retry path keeps the normal bound
+        # so a genuinely wedged daemon still fails fast.
         attempt_boot(status_timeout=first_bootstatus_timeout)
     except SimulatorBootError as error:
         # Hosted runners sometimes hand out a simulator whose CoreSimulator
@@ -176,7 +176,7 @@ def main() -> int:
     boot_parser.add_argument("--log", type=Path, required=True)
     boot_parser.add_argument("--boot-timeout", type=int, default=120)
     boot_parser.add_argument("--bootstatus-timeout", type=int, default=180)
-    boot_parser.add_argument("--first-bootstatus-timeout", type=int, default=300)
+    boot_parser.add_argument("--first-bootstatus-timeout", type=int, default=480)
 
     capture_parser = subparsers.add_parser("capture")
     capture_parser.add_argument("--output", type=Path, required=True)

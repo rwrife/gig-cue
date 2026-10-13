@@ -77,7 +77,7 @@ export DEVELOPER_DIR
 DEVELOPER_DIR="$(<"$artifact_dir/developer-dir.txt")"
 
 phase="simulator_runtime"
-# macos-26 may omit the runtime matching pinned Xcode's SDK. Download only
+# Hosted runners may omit the runtime matching pinned Xcode's SDK. Download only
 # that platform; never substitute another Xcode or simulator runtime.
 python3 - "$artifact_dir/platform-runtime.log" <<'PYTHON'
 import json
@@ -127,7 +127,7 @@ python3 Scripts/boot_simulator.py boot \
   --log "$artifact_dir/simulator-boot.log" \
   --boot-timeout 120 \
   --bootstatus-timeout 180 \
-  --first-bootstatus-timeout 300 \
+  --first-bootstatus-timeout 480 \
   2> >(tee -a "$artifact_dir/simulator-boot.log" >&2)
 
 phase="domain_tests"
