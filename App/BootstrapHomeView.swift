@@ -203,7 +203,6 @@ struct StageModeView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(flow.pendingNext ? .orange : .accentColor)
-                .accessibilityLabel(flow.pendingNext ? "Next, tap again to confirm" : "Next")
                 .accessibilityIdentifier("stage.nextButton")
             }
         }
