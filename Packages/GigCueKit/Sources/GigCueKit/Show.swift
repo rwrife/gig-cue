@@ -1,6 +1,6 @@
 import Foundation
 
-public struct StageCue: Codable, Equatable, Sendable {
+public struct StageCue: Codable, Equatable, Hashable, Sendable {
     public var id: UUID
     public var text: String
 
@@ -10,7 +10,7 @@ public struct StageCue: Codable, Equatable, Sendable {
     }
 }
 
-public struct SongCard: Codable, Equatable, Sendable {
+public struct SongCard: Codable, Equatable, Hashable, Sendable {
     public var id: UUID
     public var title: String
     public var key: String?
@@ -26,7 +26,7 @@ public struct SongCard: Codable, Equatable, Sendable {
     }
 }
 
-public struct BreakMarker: Codable, Equatable, Sendable {
+public struct BreakMarker: Codable, Equatable, Hashable, Sendable {
     public var id: UUID
     public var title: String
 
@@ -36,7 +36,7 @@ public struct BreakMarker: Codable, Equatable, Sendable {
     }
 }
 
-public enum SetItem: Equatable, Sendable, Codable {
+public enum SetItem: Equatable, Hashable, Sendable, Codable {
     case song(SongCard)
     case breakMarker(BreakMarker)
 
@@ -74,17 +74,21 @@ public enum SetItem: Equatable, Sendable, Codable {
     }
 }
 
-public struct Show: Codable, Equatable, Sendable {
+public struct Show: Codable, Equatable, Hashable, Sendable {
     public var id: UUID
     public var title: String
     public var items: [SetItem]
     public var currentSongID: UUID?
+    /// Persisted stage cursor (index into `items`). Absent until the show is
+    /// opened on stage; optional so older documents still decode.
+    public var cursorIndex: Int?
 
-    public init(id: UUID = UUID(), title: String, items: [SetItem] = [], currentSongID: UUID? = nil) {
+    public init(id: UUID = UUID(), title: String, items: [SetItem] = [], currentSongID: UUID? = nil, cursorIndex: Int? = nil) {
         self.id = id
         self.title = title
         self.items = items
         self.currentSongID = currentSongID
+        self.cursorIndex = cursorIndex
     }
 }
 
