@@ -28,8 +28,12 @@ final class GigCueLaunchTests: XCTestCase {
         XCTAssertEqual(title.label, "First Track")
 
         // Next onto a break banner is immediate (no song skipped).
+        // Kind-agnostic query: SwiftUI .accessibilityElement(children: .combine)
+        // surfaces as group vs other depending on SDK, so don't pin the kind.
         app.buttons["stage.nextButton"].tap()
-        XCTAssertTrue(app.otherElements["stage.breakBanner"].waitForExistence(timeout: 5))
+        let banner = app.descendants(matching: .any)
+            .matching(identifier: "stage.breakBanner").firstMatch
+        XCTAssertTrue(banner.waitForExistence(timeout: 5))
 
         // Next song needs a deliberate confirming second tap.
         app.buttons["stage.nextButton"].tap()
