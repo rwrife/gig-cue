@@ -203,6 +203,7 @@ struct StageModeView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(flow.pendingNext ? .orange : .accentColor)
+                .accessibilityLabel(flow.pendingNext ? "Next, tap again to confirm" : "Next")
                 .accessibilityIdentifier("stage.nextButton")
             }
         }
@@ -215,7 +216,6 @@ struct StageModeView: View {
         )) { Button("OK", role: .cancel) { storageError = nil } } message: {
             Text(storageError ?? "Unable to save stage progress")
         }
-        .accessibilityIdentifier("stage.view")
     }
 
     private func handleBack() {
