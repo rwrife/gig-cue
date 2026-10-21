@@ -1,6 +1,6 @@
 # Gig Cue
 
-Offline iPhone gig companion for live musicians: glance setlists and key/tempo cues folded, then follow a stage-friendly set flow without accounts or cloud. **Status: native launch skeleton with package tests and exact-head CI; setlist, storage, icon, and release are not yet implemented.**
+Offline iPhone gig companion for live musicians: glance setlists and key/tempo cues folded, then follow a stage-friendly set flow without accounts or cloud. **Status: native app with show/song editing, local storage, restart-safe stage navigation, package tests, and exact-head CI; store icon and TestFlight release are not yet implemented.**
 
 ## Why and for whom
 
@@ -12,7 +12,7 @@ Solo performers and small bands need reliable, legible cues between songs while 
 2. In performance mode, see the current song, next song and large next/back controls. A deliberate confirmation prevents accidental skips; the displayed position persists through app restarts.
 3. After the show, export the ordered setlist as a local JSON backup or plain-text handout using the iOS share sheet. Restores preview changes before replacing data.
 
-**MVP:** locally saved shows, reorderable song cards, break markers, stage-dimmed high-contrast performance mode, durable progress, JSON backup/restore preview, text export. Unknown key/tempo displays as unknown rather than a guessed value. No automatic tempo detection, backing-track playback, microphone listening, streaming integrations, remote band sync, lyrics scraping, AI, or cloud account.
+**MVP target:** locally saved shows, reorderable song cards, break markers, stage-dimmed high-contrast performance mode, durable progress, JSON backup/restore preview, text export. Unknown key/tempo displays as unknown rather than a guessed value. No automatic tempo detection, backing-track playback, microphone listening, streaming integrations, remote band sync, lyrics scraping, AI, or cloud account.
 
 ## Platform and layout
 
