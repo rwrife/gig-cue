@@ -74,7 +74,7 @@ public enum SetItem: Equatable, Hashable, Sendable, Codable {
     }
 }
 
-public struct Show: Codable, Equatable, Hashable, Sendable {
+public struct Show: Codable, Equatable, Hashable, Sendable, Identifiable {
     public var id: UUID
     public var title: String
     public var items: [SetItem]
