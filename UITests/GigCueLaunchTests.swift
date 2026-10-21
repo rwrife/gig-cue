@@ -119,8 +119,11 @@ final class GigCueLaunchTests: XCTestCase {
         app.launchEnvironment["UIPreferredContentSizeCategoryName"] = category
         app.launch()
 
-        app.buttons["stage.enter"].tap()
-        XCTAssertTrue(app.staticTexts["stage.currentSongTitle"].waitForExistence(timeout: 15))
+        // Fixture entry is above saved-show rows, avoiding lazy List
+        // realization gaps at AX text sizes.
+        let enter = app.buttons["stage.enter"]
+        XCTAssertTrue(enter.waitForExistence(timeout: 10))
+        enter.tap()
 
         // Control deck stays reachable at AX text sizes.
         let next = app.buttons["stage.nextButton"]

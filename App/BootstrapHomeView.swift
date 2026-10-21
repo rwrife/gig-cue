@@ -25,6 +25,11 @@ struct BootstrapHomeView: View {
                     .disabled(!ShowStore.validTitle(newTitle))
                     .accessibilityIdentifier("show.create")
                 }
+                // Keep fixture entry visible ahead of saved-show rows at AX text sizes.
+                if CommandLine.arguments.contains("-ui-testing") {
+                    Button("Enter sample stage mode", action: openSampleStage)
+                        .accessibilityIdentifier("stage.enter")
+                }
                 Section("Saved shows") {
                     ForEach(shows, id: \.id) { show in
                         VStack(alignment: .leading) {
@@ -40,11 +45,6 @@ struct BootstrapHomeView: View {
                             .buttonStyle(.borderless)
                         }
                     }
-                }
-                // Retain a deterministic fixture for the stage navigation journey.
-                if CommandLine.arguments.contains("-ui-testing") {
-                    Button("Enter sample stage mode", action: openSampleStage)
-                        .accessibilityIdentifier("stage.enter")
                 }
             }
             .navigationTitle("Gig Cue")
