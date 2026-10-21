@@ -104,4 +104,57 @@ struct ShowStorageTests {
         #expect(throws: (any Error).self) { try blocked.save(show) }
         #expect(try Data(contentsOf: file) == before)
     }
+
+    @Test("duplicate creates distinct item and cue IDs with preserved values")
+    func duplication() {
+        let cue = StageCue(text: "Fade lights")
+        let song = SongCard(title: "Song A", key: "C#m", tempo: 96, cues: [cue])
+        let original = Show(title: "Gig", items: [.song(song), .breakMarker(BreakMarker(title: "Tuning"))])
+        let copy = original.duplicated()
+
+        #expect(copy.id != original.id)
+        #expect(copy.title == "Gig Copy")
+        #expect(copy.items.count == 2)
+        #expect(copy.items[0].id != original.items[0].id)
+        #expect(copy.items[1].id != original.items[1].id)
+
+        let copiedSong = copy.items[0].song
+        #expect(copiedSong?.title == "Song A")
+        #expect(copiedSong?.key == "C#m")
+        #expect(copiedSong?.tempo == 96)
+        #expect(copiedSong?.cues.first?.text == "Fade lights")
+        #expect(copiedSong?.cues.first?.id != cue.id)
+    }
+
+    @Test("store list returns sorted shows")
+    func storeList() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ShowStore(directory: root)
+        try store.save(Show(title: "Beta Show"))
+        try store.save(Show(title: "Alpha Show"))
+
+        let list = try store.list()
+        #expect(list.map(\.title) == ["Alpha Show", "Beta Show"])
+    }
+
+    @Test("rejection of empty titles and invalid tempos")
+    func titleAndTempoValidation() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ShowStore(directory: root)
+
+        #expect(throws: ShowStoreError.invalidShow) {
+            try store.save(Show(title: "   "))
+        }
+        #expect(throws: ShowStoreError.invalidShow) {
+            try store.save(Show(title: "Valid", items: [.song(SongCard(title: "  "))]))
+        }
+        #expect(throws: ShowStoreError.invalidShow) {
+            try store.save(Show(title: "Valid", items: [.song(SongCard(title: "Valid", tempo: -5))]))
+        }
+        #expect(throws: ShowStoreError.invalidShow) {
+            try store.save(Show(title: "Valid", items: [.breakMarker(BreakMarker(title: ""))]))
+        }
+    }
 }

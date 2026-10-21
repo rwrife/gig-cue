@@ -97,6 +97,26 @@ public enum ShowStoreError: Error, Equatable {
     case invalidShow
 }
 
+public extension Show {
+    func duplicated() -> Show {
+        Show(title: title + " Copy", items: items.map { item in
+            switch item {
+            case .song(let song):
+                return .song(SongCard(title: song.title, key: song.key, tempo: song.tempo,
+                                      cues: song.cues.map { StageCue(text: $0.text) }))
+            case .breakMarker(let marker):
+                return .breakMarker(BreakMarker(title: marker.title))
+            }
+        })
+    }
+}
+
+public extension ShowStore {
+    static func validTitle(_ title: String) -> Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
 public struct ShowStore: Sendable {
     public let directory: URL
 
@@ -125,6 +145,15 @@ public struct ShowStore: Sendable {
         directory.appendingPathComponent("\(id.uuidString).json")
     }
 
+    public func list() throws -> [Show] {
+        guard FileManager.default.fileExists(atPath: directory.path) else { return [] }
+        return try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "json" }
+            .compactMap { url in UUID(uuidString: url.deletingPathExtension().lastPathComponent) }
+            .map { try load(id: $0) }
+            .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+    }
+
     public func load(id: UUID) throws -> Show {
         let data = try Data(contentsOf: file(for: id))
         let decoder = JSONDecoder()
@@ -146,9 +175,15 @@ public struct ShowStore: Sendable {
     private struct Version: Decodable { var version: Int }
 
     private func valid(_ show: Show) -> Bool {
-        guard !show.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+        guard Self.validTitle(show.title),
               Set(show.items.map(\.id)).count == show.items.count else { return false }
-        let cues = show.items.compactMap(\.song).flatMap(\.cues)
+        let songs = show.items.compactMap(\.song)
+        guard songs.allSatisfy({ Self.validTitle($0.title) && ($0.tempo.map { $0 > 0 } ?? true) }),
+              show.items.allSatisfy({ item in
+                  if case .breakMarker(let marker) = item { return Self.validTitle(marker.title) }
+                  return true
+              }) else { return false }
+        let cues = songs.flatMap(\.cues)
         guard Set(cues.map(\.id)).count == cues.count else { return false }
         return show.currentSongID.map { id in show.items.contains { $0.song?.id == id } } ?? true
     }

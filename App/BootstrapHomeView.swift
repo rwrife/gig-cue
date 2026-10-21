@@ -2,52 +2,58 @@ import GigCueKit
 import SwiftUI
 
 struct BootstrapHomeView: View {
+    @State private var shows: [Show] = []
     @State private var activeShow: Show?
+    @State private var editingShow: Show?
+    @State private var newTitle = ""
     @State private var storageError: String?
     private let store = ShowStore()
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Image(systemName: "music.note.list")
-                    .font(.system(size: 54))
-                    .foregroundStyle(.tint)
-                    .accessibilityHidden(true)
-
-                VStack(spacing: 8) {
-                    Text("Gig Cue")
-                        .font(.largeTitle.bold())
-                    Text("An offline stage setlist and cue companion for one-thumb performance navigation.")
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(.secondary)
-                }
-
-                GroupBox {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Label("Native iPhone foundation is ready", systemImage: "checkmark.circle")
-                        Text("Reorderable setlists, restart-safe stage progress, and high-contrast performance mode land in the next milestones.")
-                            .foregroundStyle(.secondary)
-                        Text("Domain core milestone: \(GigCueKit.milestone).")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+            List {
+                Section("New show") {
+                    TextField("Show name", text: $newTitle)
+                        .submitLabel(.done)
+                        .accessibilityIdentifier("show.newTitle")
+                    Button("Create show") {
+                        let show = Show(title: newTitle.trimmingCharacters(in: .whitespacesAndNewlines))
+                        persist(show)
+                        if storageError == nil { newTitle = ""; editingShow = show }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .disabled(!ShowStore.validTitle(newTitle))
+                    .accessibilityIdentifier("show.create")
                 }
-
-                Button(action: openSampleStage) {
-                    Label("Enter stage mode", systemImage: "play.circle.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                Section("Saved shows") {
+                    ForEach(shows, id: \.id) { show in
+                        VStack(alignment: .leading) {
+                            Text(show.title).font(.headline)
+                            HStack {
+                                Button("Edit") { editingShow = show }
+                                    .accessibilityIdentifier("show.edit.\(show.id)")
+                                Button("Duplicate") { persist(show.duplicated()) }
+                                    .accessibilityIdentifier("show.duplicate.\(show.id)")
+                                Button("Stage") { activeShow = show }
+                                    .accessibilityIdentifier("show.stage.\(show.id)")
+                            }
+                            .buttonStyle(.borderless)
+                        }
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("stage.enter")
+                // Retain a deterministic fixture for the stage navigation journey.
+                if CommandLine.arguments.contains("-ui-testing") {
+                    Button("Enter sample stage mode", action: openSampleStage)
+                        .accessibilityIdentifier("stage.enter")
+                }
             }
-            .padding(24)
-            .navigationTitle("Home")
+            .navigationTitle("Gig Cue")
             .navigationDestination(item: $activeShow) { show in
                 StageModeView(initialShow: show, store: store)
             }
+            .sheet(item: $editingShow, onDismiss: reload) { show in
+                ShowEditorView(initialShow: show, store: store, onSave: reload)
+            }
+            .onAppear(perform: reload)
             .alert("Storage error", isPresented: Binding(
                 get: { storageError != nil },
                 set: { if !$0 { storageError = nil } }
@@ -55,7 +61,16 @@ struct BootstrapHomeView: View {
                 Text(storageError ?? "Unable to save show")
             }
         }
-        .accessibilityIdentifier("bootstrap.home")
+    }
+
+    private func persist(_ show: Show) {
+        do { try store.save(show); reload() }
+        catch { storageError = error.localizedDescription }
+    }
+
+    private func reload() {
+        do { shows = try store.list() }
+        catch { storageError = error.localizedDescription }
     }
 
     private func openSampleStage() {
@@ -235,6 +250,238 @@ struct StageModeView: View {
             flow = updated
         } catch {
             storageError = error.localizedDescription
+        }
+    }
+}
+
+struct ShowEditorView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var show: Show
+    @State private var songTitle = ""
+    @State private var songKey = ""
+    @State private var songTempo = ""
+    @State private var songCue = ""
+    @State private var breakTitle = ""
+    @State private var editingSongID: UUID?
+    @State private var editTitle = ""
+    @State private var editKey = ""
+    @State private var editTempo = ""
+    @State private var editCue = ""
+    @State private var storageError: String?
+    private let store: ShowStore
+    private let onSave: @MainActor @Sendable () -> Void
+
+    init(initialShow: Show, store: ShowStore, onSave: @escaping @MainActor @Sendable () -> Void) {
+        _show = State(initialValue: initialShow)
+        self.store = store
+        self.onSave = onSave
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Add song") {
+                    TextField("Title", text: $songTitle)
+                        .accessibilityIdentifier("editor.songTitle")
+                    TextField("Key (optional)", text: $songKey)
+                        .accessibilityIdentifier("editor.songKey")
+                    TextField("Tempo BPM (optional)", text: $songTempo)
+                        .keyboardType(.numberPad)
+                        .accessibilityIdentifier("editor.songTempo")
+                    TextField("Cue note (optional)", text: $songCue)
+                        .accessibilityIdentifier("editor.songCue")
+                    Button("Add song") {
+                        let cue = songCue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let cues = cue.isEmpty ? [] : [StageCue(text: cue)]
+                        let tempo = Int(songTempo.trimmingCharacters(in: .whitespacesAndNewlines))
+                        let keyStr = songKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let card = SongCard(
+                            title: songTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+                            key: keyStr.isEmpty ? nil : keyStr,
+                            tempo: tempo,
+                            cues: cues
+                        )
+                        var updated = show
+                        updated.items.append(.song(card))
+                        if save(updated) { songTitle = ""; songKey = ""; songTempo = ""; songCue = "" }
+                    }
+                    .disabled(!ShowStore.validTitle(songTitle) || !validTempo(songTempo))
+                    .accessibilityIdentifier("editor.addSong")
+                }
+
+                Section("Add break") {
+                    TextField("Break label (e.g. Intermission)", text: $breakTitle)
+                        .accessibilityIdentifier("editor.breakTitle")
+                    Button("Insert break") {
+                        let title = breakTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                        var updated = show
+                        updated.items.append(.breakMarker(BreakMarker(title: title.isEmpty ? "Break" : title)))
+                        if save(updated) { breakTitle = "" }
+                    }
+                    .accessibilityIdentifier("editor.insertBreak")
+                }
+
+                Section("Set order (\(show.items.count) items)") {
+                    ForEach(Array(show.items.enumerated()), id: \.element.id) { index, item in
+                        switch item {
+                        case .song(let song):
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text("\(index + 1). \(song.title)").font(.headline)
+                                    Spacer()
+                                    if let key = song.key { Text(key).font(.caption).foregroundStyle(.secondary) }
+                                    if let tempo = song.tempo { Text("\(tempo) bpm").font(.caption).foregroundStyle(.secondary) }
+                                }
+                                if let cue = song.cues.first {
+                                    Text("Cue: \(cue.text)").font(.caption).foregroundStyle(.secondary)
+                                }
+                                Button {
+                                    moveSong(song.id, direction: -1)
+                                } label: {
+                                    Image(systemName: "arrow.up")
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Move up")
+                                .accessibilityIdentifier("editor.moveUp.\(song.id)")
+                                Button {
+                                    moveSong(song.id, direction: 1)
+                                } label: {
+                                    Image(systemName: "arrow.down")
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Move down")
+                                .accessibilityIdentifier("editor.moveDown.\(song.id)")
+                                Button("Edit song details") {
+                                    editingSongID = song.id
+                                    editTitle = song.title
+                                    editKey = song.key ?? ""
+                                    editTempo = song.tempo.map(String.init) ?? ""
+                                    editCue = song.cues.first?.text ?? ""
+                                }
+                                .font(.caption)
+                                .buttonStyle(.borderless)
+                                .accessibilityIdentifier("editor.editSong.\(song.id)")
+                            }
+                        case .breakMarker(let marker):
+                            HStack {
+                                Image(systemName: "pause.circle.fill")
+                                Text(marker.title).bold()
+                            }
+                            .foregroundStyle(.orange)
+                        }
+                    }
+                    .onDelete { indices in
+                        var updated = show
+                        updated.items.remove(atOffsets: indices)
+                        if updated.currentSongID.map({ id in !updated.items.contains { $0.song?.id == id } }) == true {
+                            updated.currentSongID = nil
+                            updated.cursorIndex = nil
+                        }
+                        _ = save(updated)
+                    }
+                    .onMove { indices, newOffset in
+                        var updated = show
+                        updated.items.move(fromOffsets: indices, toOffset: newOffset)
+                        _ = save(updated)
+                    }
+                }
+            }
+            .navigationTitle(show.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    EditButton()
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .accessibilityIdentifier("editor.done")
+                }
+            }
+            .sheet(isPresented: Binding(
+                get: { editingSongID != nil },
+                set: { if !$0 { editingSongID = nil } }
+            )) {
+                NavigationStack {
+                    Form {
+                        TextField("Title", text: $editTitle)
+                            .accessibilityIdentifier("editor.songEditTitle")
+                        TextField("Key", text: $editKey)
+                            .accessibilityIdentifier("editor.songEditKey")
+                        TextField("Tempo BPM", text: $editTempo)
+                            .keyboardType(.numberPad)
+                            .accessibilityIdentifier("editor.songEditTempo")
+                        TextField("Cue note", text: $editCue)
+                            .accessibilityIdentifier("editor.songEditCue")
+                    }
+                    .navigationTitle("Edit song")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Cancel") { editingSongID = nil }
+                        }
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Save") { applySongEdit() }
+                            .disabled(!ShowStore.validTitle(editTitle) || !validTempo(editTempo))
+                            .accessibilityIdentifier("editor.songEditSave")
+                        }
+                    }
+                }
+            }
+            .alert("Storage error", isPresented: Binding(
+                get: { storageError != nil },
+                set: { if !$0 { storageError = nil } }
+            )) { Button("OK", role: .cancel) { storageError = nil } } message: {
+                Text(storageError ?? "Unable to save show")
+            }
+        }
+    }
+
+    private func moveSong(_ id: UUID, direction: Int) {
+        guard let index = show.items.firstIndex(where: { $0.id == id }) else { return }
+        let target = index + direction
+        guard show.items.indices.contains(target) else { return }
+        var updated = show
+        updated.items.swapAt(index, target)
+        _ = save(updated)
+    }
+
+    private func applySongEdit() {
+        guard let id = editingSongID,
+              let idx = show.items.firstIndex(where: { $0.song?.id == id }) else { return }
+        let trimmedCue = editCue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cues = trimmedCue.isEmpty ? [] : [StageCue(text: trimmedCue)]
+        let tempo = Int(editTempo.trimmingCharacters(in: .whitespacesAndNewlines))
+        let key = editKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let updatedSong = SongCard(
+            id: id,
+            title: editTitle.trimmingCharacters(in: .whitespacesAndNewlines),
+            key: key.isEmpty ? nil : key,
+            tempo: tempo,
+            cues: cues
+        )
+        var updated = show
+        updated.items[idx] = .song(updatedSong)
+        if save(updated) { editingSongID = nil }
+    }
+
+    /// Empty is valid (unknown tempo); otherwise must parse to a positive BPM.
+    private func validTempo(_ raw: String) -> Bool {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return true }
+        return (Int(trimmed).map { $0 > 0 }) ?? false
+    }
+
+    /// Persist a candidate; only adopt it into local state when the store
+    /// accepts it, so failed validations never corrupt the on-screen show.
+    @discardableResult
+    private func save(_ candidate: Show) -> Bool {
+        do {
+            try store.save(candidate)
+            show = candidate
+            onSave()
+            return true
+        } catch {
+            storageError = error.localizedDescription
+            return false
         }
     }
 }
