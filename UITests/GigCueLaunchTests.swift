@@ -110,4 +110,36 @@ final class GigCueLaunchTests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["Tour Rehearsal Copy"].waitForExistence(timeout: 5))
     }
+
+    @MainActor
+    func testStageControlsUsableAtAccessibilityTextSize() throws {
+        let app = XCUIApplication()
+        let category = "UICTContentSizeCategoryAccessibilityL"
+        app.launchArguments = ["-ui-testing", "-ui-reset-stage", "-UIPreferredContentSizeCategoryName", category]
+        app.launchEnvironment["UIPreferredContentSizeCategoryName"] = category
+        app.launch()
+
+        // Fixture entry is above saved-show rows, avoiding lazy List
+        // realization gaps at AX text sizes.
+        let enter = app.buttons["stage.enter"]
+        XCTAssertTrue(enter.waitForExistence(timeout: 10))
+        enter.tap()
+
+        // Control deck stays reachable at AX text sizes.
+        let next = app.buttons["stage.nextButton"]
+        XCTAssertTrue(next.waitForExistence(timeout: 10))
+        XCTAssertTrue(next.isHittable)
+        XCTAssertTrue(app.buttons["stage.backButton"].isHittable)
+
+        let dimToggle = app.switches["stage.dimToggle"]
+        XCTAssertTrue(dimToggle.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.switches["stage.awakeToggle"].exists)
+
+        // VoiceOver identifiers resolve on the primary deck too.
+        // The next card merges children (.combine), so query the container,
+        // not a nested text identifier.
+        XCTAssertTrue(app.descendants(matching: .any)
+            .matching(identifier: "stage.nextCard").firstMatch
+            .waitForExistence(timeout: 5))
+    }
 }
