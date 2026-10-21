@@ -1,5 +1,6 @@
 import GigCueKit
 import SwiftUI
+import UIKit
 
 struct BootstrapHomeView: View {
     @State private var shows: [Show] = []
@@ -115,6 +116,8 @@ struct BootstrapHomeView: View {
 struct StageModeView: View {
     @State private var flow: StageFlow
     @State private var storageError: String?
+    @State private var stageDimmed = false
+    @State private var keepScreenAwake = false
     private let store: ShowStore
 
     init(initialShow: Show, store: ShowStore) {
@@ -123,7 +126,38 @@ struct StageModeView: View {
     }
 
     var body: some View {
-        VStack(spacing: 20) {
+        GigWorkspaceLayout {
+            ScrollView {
+                VStack(spacing: 20) {
+                    currentCard
+                    nextCard
+                }
+                .frame(maxWidth: .infinity)
+            }
+        } deck: {
+            controlDeck
+        }
+        .padding()
+        .background(stageDimmed ? Color.black : Color(.systemBackground))
+        .foregroundStyle(stageDimmed ? Color.white : Color.primary)
+        .tint(stageDimmed ? Color.yellow : Color.accentColor)
+        .navigationTitle(flow.show.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear { UIApplication.shared.isIdleTimerDisabled = keepScreenAwake }
+        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+        .onChange(of: keepScreenAwake) { _, newValue in
+            UIApplication.shared.isIdleTimerDisabled = newValue
+        }
+        .alert("Storage error", isPresented: Binding(
+            get: { storageError != nil },
+            set: { if !$0 { storageError = nil } }
+        )) { Button("OK", role: .cancel) { storageError = nil } } message: {
+            Text(storageError ?? "Unable to save stage progress")
+        }
+    }
+
+    @ViewBuilder private var currentCard: some View {
+        Group {
             switch flow.current {
             case .song(let song):
                 VStack(alignment: .leading, spacing: 12) {
@@ -161,7 +195,7 @@ struct StageModeView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding()
-                .background(Color(.secondarySystemBackground))
+                .background(stageDimmed ? Color.white.opacity(0.12) : Color(.secondarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
             case .breakMarker(let marker):
@@ -181,25 +215,38 @@ struct StageModeView: View {
 
             case .none:
                 Text("Set is empty")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(stageDimmed ? Color.white.opacity(0.8) : Color.secondary)
             }
+        }
+        .accessibilityElement(children: .contain)
+    }
 
-            Spacer()
-
-            if let next = flow.next {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("NEXT")
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
-                    switch next {
-                    case .song(let song): Text(song.title).font(.title3.bold())
-                    case .breakMarker(let marker): Label(marker.title, systemImage: "pause.circle").font(.title3.bold())
-                    }
+    @ViewBuilder private var nextCard: some View {
+        if let next = flow.next {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("NEXT")
+                    .font(.caption.bold())
+                    .foregroundStyle(stageDimmed ? Color.white.opacity(0.8) : Color.secondary)
+                switch next {
+                case .song(let song):
+                    Text(song.title)
+                        .font(.title3.bold())
+                        .accessibilityIdentifier("stage.nextSongTitle")
+                case .breakMarker(let marker):
+                    Label(marker.title, systemImage: "pause.circle").font(.title3.bold())
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("stage.nextCard")
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+            .background(stageDimmed ? Color.white.opacity(0.12) : Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("stage.nextCard")
+        }
+    }
+
+    private var controlDeck: some View {
+        VStack(spacing: 12) {
             HStack(spacing: 16) {
                 Button(action: handleBack) {
                     Label("Back", systemImage: "backward.fill")
@@ -218,17 +265,28 @@ struct StageModeView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(flow.pendingNext ? .orange : .accentColor)
+                .accessibilityHint(flow.pendingNext
+                    ? "Press again to skip to the next song."
+                    : "Press twice to skip to the next song; a confirmation step prevents accidental skips.")
                 .accessibilityIdentifier("stage.nextButton")
             }
-        }
-        .padding()
-        .navigationTitle(flow.show.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .alert("Storage error", isPresented: Binding(
-            get: { storageError != nil },
-            set: { if !$0 { storageError = nil } }
-        )) { Button("OK", role: .cancel) { storageError = nil } } message: {
-            Text(storageError ?? "Unable to save stage progress")
+            HStack(spacing: 16) {
+                Toggle(isOn: $stageDimmed) {
+                    Label("Stage dim", systemImage: "circle.lefthalf.filled")
+                        .font(.footnote)
+                }
+                .toggleStyle(.switch)
+                .accessibilityIdentifier("stage.dimToggle")
+
+                Toggle(isOn: $keepScreenAwake) {
+                    Label("Keep awake", systemImage: "sun.max")
+                        .font(.footnote)
+                }
+                .toggleStyle(.switch)
+                .accessibilityIdentifier("stage.awakeToggle")
+
+                Spacer()
+            }
         }
     }
 

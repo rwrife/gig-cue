@@ -1,6 +1,6 @@
 # Gig Cue
 
-Offline iPhone gig companion for live musicians: glance setlists and key/tempo cues folded, then follow a stage-friendly set flow without accounts or cloud. **Status: native app with show/song editing, local storage, restart-safe stage navigation, package tests, and exact-head CI; store icon and TestFlight release are not yet implemented.**
+Offline iPhone gig companion for live musicians: glance setlists and key/tempo cues folded, then follow a stage-friendly set flow without accounts or cloud. **Status: native app with accessible stage controls, Duo workspace seam, show/song editing, local storage, restart-safe stage navigation, package tests, and exact-head CI; store icon and TestFlight release are not yet implemented.**
 
 ## Why and for whom
 
