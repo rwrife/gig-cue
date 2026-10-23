@@ -9,6 +9,7 @@
 		A10000000000000000000101 /* GigCueApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000201 /* GigCueApp.swift */; };
 		A10000000000000000000102 /* BootstrapHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000202 /* BootstrapHomeView.swift */; };
 		A10000000000000000000105 /* GigWorkspaceLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000206 /* GigWorkspaceLayout.swift */; };
+		A10000000000000000000106 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000207 /* ShareSheet.swift */; };
 		A10000000000000000000103 /* GigCueLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000203 /* GigCueLaunchTests.swift */; };
 		A10000000000000000000104 /* GigCueKit in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000801 /* GigCueKit */; };
 /* End PBXBuildFile section */
@@ -27,6 +28,7 @@
 		A10000000000000000000201 /* GigCueApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GigCueApp.swift; sourceTree = "<group>"; };
 		A10000000000000000000202 /* BootstrapHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BootstrapHomeView.swift; sourceTree = "<group>"; };
 		A10000000000000000000206 /* GigWorkspaceLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GigWorkspaceLayout.swift; sourceTree = "<group>"; };
+		A10000000000000000000207 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		A10000000000000000000203 /* GigCueLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GigCueLaunchTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000204 /* GigCue.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GigCue.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000205 /* GigCueUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GigCueUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -63,6 +65,7 @@
 				A10000000000000000000201 /* GigCueApp.swift */,
 				A10000000000000000000202 /* BootstrapHomeView.swift */,
 				A10000000000000000000206 /* GigWorkspaceLayout.swift */,
+				A10000000000000000000207 /* ShareSheet.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -162,6 +165,7 @@
 				A10000000000000000000101 /* GigCueApp.swift in Sources */,
 				A10000000000000000000102 /* BootstrapHomeView.swift in Sources */,
 				A10000000000000000000105 /* GigWorkspaceLayout.swift in Sources */,
+				A10000000000000000000106 /* ShareSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

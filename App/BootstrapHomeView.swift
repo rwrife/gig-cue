@@ -8,6 +8,11 @@ struct BootstrapHomeView: View {
     @State private var editingShow: Show?
     @State private var newTitle = ""
     @State private var storageError: String?
+    @State private var showImportPicker = false
+    @State private var pendingRestore: BackupDocument?
+    @State private var restorePreview: Backup.Preview?
+    @State private var shareItems: [URL] = []
+    @State private var showShareSheet = false
     private let store = ShowStore()
 
     var body: some View {
@@ -41,10 +46,25 @@ struct BootstrapHomeView: View {
                                     .accessibilityIdentifier("show.duplicate.\(show.id)")
                                 Button("Stage") { activeShow = show }
                                     .accessibilityIdentifier("show.stage.\(show.id)")
+                                Button("Export") { exportText(show) }
+                                    .accessibilityIdentifier("show.export.\(show.id)")
                             }
                             .buttonStyle(.borderless)
                         }
                     }
+                }
+                Section("Backup & restore") {
+                    Button("Export JSON backup") { exportBackup() }
+                        .accessibilityIdentifier("backup.export")
+                        .accessibilityHint("Shares a local JSON copy of all shows; you choose the destination.")
+                    Button("Restore from JSON file") { showImportPicker = true }
+                        .accessibilityIdentifier("backup.restore")
+                        .accessibilityHint("Preview changes first; nothing is replaced until you confirm.")
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Reload") { reload() }
                 }
             }
             .navigationTitle("Gig Cue")
@@ -53,6 +73,35 @@ struct BootstrapHomeView: View {
             }
             .sheet(item: $editingShow, onDismiss: reload) { show in
                 ShowEditorView(initialShow: show, store: store, onSave: reload)
+            }
+            .sheet(isPresented: $showImportPicker) {
+                JSONDocumentPicker { data in
+                    showImportPicker = false
+                    guard let data else { return }
+                    inspectRestore(data)
+                }
+            }
+            .sheet(isPresented: $showShareSheet) {
+                ShareSheet(activityItems: shareItems)
+            }
+            .sheet(item: $pendingRestore) { backup in
+                RestorePreviewSheet(
+                    preview: restorePreview ?? Backup.preview(backup: backup, current: shows),
+                    onConfirm: {
+                        do {
+                            try store.replaceAll(with: backup.shows)
+                            pendingRestore = nil
+                            restorePreview = nil
+                            reload()
+                        } catch {
+                            storageError = error.localizedDescription
+                        }
+                    },
+                    onCancel: {
+                        pendingRestore = nil
+                        restorePreview = nil
+                    }
+                )
             }
             .onAppear(perform: reload)
             .alert("Storage error", isPresented: Binding(
@@ -72,6 +121,41 @@ struct BootstrapHomeView: View {
     private func reload() {
         do { shows = try store.list() }
         catch { storageError = error.localizedDescription }
+    }
+
+    private func exportBackup() {
+        do {
+            let data = try Backup.encode(try store.list())
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("GigCue-Backup-\(UUID().uuidString).json")
+            try data.write(to: url, options: .atomic)
+            shareItems = [url]
+            showShareSheet = true
+        } catch {
+            storageError = error.localizedDescription
+        }
+    }
+
+    private func exportText(_ show: Show) {
+        do {
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("GigCue-Setlist-\(UUID().uuidString).txt")
+            try Data(SetlistExport.plainText(show).utf8).write(to: url, options: .atomic)
+            shareItems = [url]
+            showShareSheet = true
+        } catch {
+            storageError = error.localizedDescription
+        }
+    }
+
+    private func inspectRestore(_ data: Data) {
+        do {
+            let backup = try Backup.decode(data)
+            restorePreview = Backup.preview(backup: backup, current: try store.list())
+            pendingRestore = backup
+        } catch {
+            storageError = error.localizedDescription
+        }
     }
 
     private func openSampleStage() {
@@ -109,6 +193,52 @@ struct BootstrapHomeView: View {
             activeShow = sample
         } catch {
             storageError = error.localizedDescription
+        }
+    }
+}
+
+/// Non-destructive restore preview with explicit replace confirmation.
+struct RestorePreviewSheet: View {
+    let preview: Backup.Preview
+    let onConfirm: @MainActor @Sendable () -> Void
+    let onCancel: @MainActor @Sendable () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if preview.isEmpty {
+                    Text("Backup matches current shows. Nothing to replace.")
+                        .accessibilityIdentifier("restore.summary")
+                } else {
+                    Section("Summary") {
+                        Text("Adds \(preview.added.count), replaces \(preview.replaced.count), removes \(preview.removed.count).")
+                            .accessibilityIdentifier("restore.summary")
+                    }
+                    if !preview.added.isEmpty {
+                        Section("Added shows") { ForEach(preview.added) { Text($0.title) } }
+                    }
+                    if !preview.replaced.isEmpty {
+                        Section("Replaced shows") { ForEach(preview.replaced) { Text($0.title) } }
+                    }
+                    if !preview.removed.isEmpty {
+                        Section("Removed shows") { ForEach(preview.removed) { Text($0.title) } }
+                    }
+                }
+            }
+            .navigationTitle("Restore preview")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel", action: onCancel)
+                        .accessibilityIdentifier("restore.cancel")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Replace", role: .destructive, action: onConfirm)
+                        .disabled(preview.isEmpty)
+                        .accessibilityHint("Replaces all saved shows with backup contents. This cannot be undone.")
+                        .accessibilityIdentifier("restore.confirm")
+                }
+            }
         }
     }
 }

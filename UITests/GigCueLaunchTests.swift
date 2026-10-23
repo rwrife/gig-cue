@@ -112,6 +112,19 @@ final class GigCueLaunchTests: XCTestCase {
     }
 
     @MainActor
+    func testBackupRestoreControlsPresent() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing"]
+        app.launch()
+
+        // Backup section actions bridge into the accessibility tree.
+        let export = app.buttons["backup.export"]
+        XCTAssertTrue(export.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["backup.restore"].exists)
+        XCTAssertTrue(export.label.contains("Export JSON backup"))
+    }
+
+    @MainActor
     func testStageControlsUsableAtAccessibilityTextSize() throws {
         let app = XCUIApplication()
         let category = "UICTContentSizeCategoryAccessibilityL"
