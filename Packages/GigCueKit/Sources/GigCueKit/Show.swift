@@ -168,13 +168,13 @@ public struct ShowStore: Sendable {
         default:
             throw ShowStoreError.unsupportedVersion(version)
         }
-        guard show.id == id, valid(show) else { throw ShowStoreError.invalidShow }
+        guard show.id == id, isValid(show) else { throw ShowStoreError.invalidShow }
         return show
     }
 
     private struct Version: Decodable { var version: Int }
 
-    private func valid(_ show: Show) -> Bool {
+    public func isValid(_ show: Show) -> Bool {
         guard Self.validTitle(show.title),
               Set(show.items.map(\.id)).count == show.items.count else { return false }
         let songs = show.items.compactMap(\.song)
@@ -189,7 +189,7 @@ public struct ShowStore: Sendable {
     }
 
     public func save(_ show: Show) throws {
-        guard valid(show) else { throw ShowStoreError.invalidShow }
+        guard isValid(show) else { throw ShowStoreError.invalidShow }
         let destination = file(for: show.id)
         if FileManager.default.fileExists(atPath: destination.path) {
             _ = try load(id: show.id) // Never overwrite unreadable or unsupported documents.
@@ -197,5 +197,36 @@ public struct ShowStore: Sendable {
         let data = try JSONEncoder().encode(Document(version: 2, show: show))
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try data.write(to: destination, options: .atomic)
+    }
+
+    /// Stage every file before touching live data; swap directories only after
+    /// validation and successful writes. Restore old directory on swap error.
+    public func replaceAll(with shows: [Show]) throws {
+        for show in shows where !isValid(show) { throw ShowStoreError.invalidShow }
+        let ids = shows.map(\.id)
+        guard Set(ids).count == ids.count else { throw ShowStoreError.invalidShow }
+        _ = try list() // Reject unreadable or future-version live documents.
+
+        let parent = directory.deletingLastPathComponent()
+        let stage = parent.appendingPathComponent("GigCue-stage-\(UUID().uuidString)", isDirectory: true)
+        let rollback = parent.appendingPathComponent("GigCue-rollback-\(UUID().uuidString)", isDirectory: true)
+        let manager = FileManager.default
+        do {
+            let candidateStore = ShowStore(directory: stage)
+            try manager.createDirectory(at: stage, withIntermediateDirectories: true)
+            for show in shows { try candidateStore.save(show) }
+            let hadLive = manager.fileExists(atPath: directory.path)
+            if hadLive { try manager.moveItem(at: directory, to: rollback) }
+            do {
+                try manager.moveItem(at: stage, to: directory)
+            } catch {
+                if hadLive { try manager.moveItem(at: rollback, to: directory) }
+                throw error
+            }
+            if hadLive { try? manager.removeItem(at: rollback) }
+        } catch {
+            try? manager.removeItem(at: stage)
+            throw error
+        }
     }
 }
