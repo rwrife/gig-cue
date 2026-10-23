@@ -1,0 +1,197 @@
+name: Release (TestFlight)
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (without v; must match checked-out commit)'
+        required: true
+        default: '0.1.0'
+      upload:
+        description: 'Upload to TestFlight and publish GitHub release'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    name: Archive + TestFlight upload
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      ASC_TEAM_ID: ${{ secrets.ASC_TEAM_ID }}
+    outputs:
+      release_tag: ${{ steps.version.outputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify version tag
+        id: version
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ]; then
+            [[ "$DISPATCH_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo '::error::Invalid version'; exit 1; }
+            TAG="v$DISPATCH_VERSION"
+            git fetch origin "refs/tags/$TAG:refs/tags/$TAG"
+            test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA" || { echo '::error::Version tag does not point to dispatched SHA'; exit 1; }
+          else
+            TAG="$GITHUB_REF_NAME"
+            [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo '::error::Invalid version tag'; exit 1; }
+          fi
+          echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "MARKETING_VERSION=${TAG#v}" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+
+      - name: Select exact Xcode 26.0.1 (17A400), iPhoneOS SDK 26.0
+        run: |
+          set -euo pipefail
+          DEVELOPER_DIR="$(python3 Scripts/select_xcode.py --toolchain toolchain.json)"
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
+          export DEVELOPER_DIR
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          DESTINATIONS="$(xcodebuild -project GigCue.xcodeproj -scheme GigCue -showdestinations)"
+          if ! printf '%s\n' "$DESTINATIONS" | grep -q 'Any iOS Device' || printf '%s\n' "$DESTINATIONS" | grep -q 'Any iOS Device, error:'; then
+            xcodebuild -downloadPlatform iOS -architectureVariant universal
+            DESTINATIONS="$(xcodebuild -project GigCue.xcodeproj -scheme GigCue -showdestinations)"
+          fi
+          printf '%s\n' "$DESTINATIONS" | grep -q 'Any iOS Device' || { echo '::error::Pinned iOS device platform unavailable'; exit 1; }
+          ! printf '%s\n' "$DESTINATIONS" | grep -q 'Any iOS Device, error:' || { echo '::error::Pinned iOS device platform unavailable'; exit 1; }
+
+      - name: Install ASC API key (mode 600; never log values)
+        run: |
+          set -euo pipefail
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 ASC_TEAM_ID; do
+            test -n "${!name:-}" || { echo "::error::Missing $name"; exit 1; }
+          done
+          umask 077
+          printf '%s' "$ASC_KEY_P8" | sed 's/\\n/\n/g' > "$RUNNER_TEMP/asc-api-key.p8"
+          test -s "$RUNNER_TEMP/asc-api-key.p8"
+          chmod 600 "$RUNNER_TEMP/asc-api-key.p8"
+
+      - name: Archive signed iPhone app
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -project GigCue.xcodeproj -scheme GigCue -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/GigCue.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc-api-key.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$ASC_TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=YES \
+            MARKETING_VERSION="$MARKETING_VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+          APP="$RUNNER_TEMP/GigCue.xcarchive/Products/Applications/GigCue.app"
+          python3 - "$APP/Info.plist" <<'PY'
+          import plistlib, sys
+          with open(sys.argv[1], 'rb') as f:
+              info = plistlib.load(f)
+          assert info.get('CFBundleIdentifier') == 'com.infinityball.gigcue', info.get('CFBundleIdentifier')
+          assert info.get('UIDeviceFamily') == [1], info.get('UIDeviceFamily')
+          print('Archive Info.plist: bundle=com.infinityball.gigcue, UIDeviceFamily=[1]')
+          PY
+          test -s "$APP/Assets.car"
+          compgen -G "$APP/AppIcon*.png" >/dev/null
+          codesign --verify --deep --strict "$APP"
+          echo 'Signed archive: com.infinityball.gigcue, UIDeviceFamily=[1], icon compiled'
+
+      - name: Export signed IPA (upload when requested)
+        env:
+          UPLOAD: ${{ inputs.upload != false }}
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          if [ "$UPLOAD" = 'true' ]; then DESTINATION='upload'; else DESTINATION='export'; fi
+          python3 - "$RUNNER_TEMP/ExportOptions.plist" "$ASC_TEAM_ID" "$DESTINATION" <<'PY'
+          import plistlib, sys
+          path, team, destination = sys.argv[1:]
+          options = dict(method='app-store-connect', signingStyle='automatic', teamID=team,
+                         manageAppVersionAndBuildNumber=False, uploadSymbols=True)
+          if destination == 'upload':
+              options.update(destination='upload', uploadMethod='app-store-connect')
+          with open(path, 'wb') as f:
+              plistlib.dump(options, f)
+          PY
+          mkdir -p "$RUNNER_TEMP/ipa"
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/GigCue.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/ipa" \
+            -allowProvisioningUpdates -authenticationKeyPath "$RUNNER_TEMP/asc-api-key.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          compgen -G "$RUNNER_TEMP/ipa/*.ipa" >/dev/null
+
+      - name: Await processed TestFlight build
+        if: ${{ inputs.upload != false }}
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          API=https://api.appstoreconnect.apple.com
+          JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Scripts/asc_jwt.rb)"
+          APP_ID="$(curl -gsS --fail -H "Authorization: Bearer $JWT" \
+            "$API/v1/apps?filter[bundleId]=com.infinityball.gigcue" | jq -r '.data[0].id // empty')"
+          test -n "$APP_ID" || { echo '::error::ASC app record missing'; exit 1; }
+          for attempt in $(seq 1 40); do
+            JWT="$(ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" ruby Scripts/asc_jwt.rb)"
+            ENTRY="$(curl -gsS --fail -H "Authorization: Bearer $JWT" \
+              "$API/v1/builds?filter[app]=$APP_ID&sort=-uploadedDate&limit=15" | \
+              jq -r --arg number "$BUILD_NUMBER" '[.data[] | select(.attributes.version == $number)] | first | if . then [.id, .attributes.processingState] | @tsv else "" end')"
+            if [ -n "$ENTRY" ]; then
+              IFS=$'\t' read -r BUILD_ID STATE <<< "$ENTRY"
+              echo "ASC attempt=$attempt app=$APP_ID build=$BUILD_ID number=$BUILD_NUMBER processing=$STATE"
+              case "$STATE" in
+                VALID|COMPLETE) echo "Processed TestFlight build: $BUILD_ID"; exit 0 ;;
+                FAILED|INVALID) echo "::error::ASC processing failed: $STATE"; exit 1 ;;
+              esac
+            fi
+            sleep 25
+          done
+          echo '::error::Timed out waiting for processed TestFlight build'; exit 1
+
+      - name: Retain IPA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gigcue-ipa-${{ github.run_number }}
+          path: ${{ runner.temp }}/ipa/*.ipa
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove API key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/asc-api-key.p8"
+
+  github-release:
+    name: GitHub release
+    needs: testflight
+    if: ${{ inputs.upload != false }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish release only after processed TestFlight build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.testflight.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          test -n "$RELEASE_TAG"
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+              --verify-tag --generate-notes --title "Gig Cue $RELEASE_TAG"
+          fi
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url
